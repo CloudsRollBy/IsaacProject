@@ -72,6 +72,7 @@ class SimLidar(Codelet):
         print(range_sizes, intensities_sizes)
         print(ranges.dataBufferIndex, intensities.dataBufferIndex)
 
+
         # print(dir(lidar_message))
         # print(dir(ranges))
         # print(dir(intensities))
