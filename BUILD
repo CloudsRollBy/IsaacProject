@@ -5,6 +5,7 @@ isaac_py_app(
     srcs = ["sim_cv.py"],
     data = [
         "//packages/navsim/apps:navsim_tcp_subgraph",
+        "//apps/mybot/subgraph:range_scan_subgraph",
     ],
     modules = [
         "message_generators",

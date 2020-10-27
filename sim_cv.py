@@ -71,18 +71,46 @@ class SimLidar(Codelet):
         print(lidar_tensor.shape)
         print(range_sizes, intensities_sizes)
         print(ranges.dataBufferIndex, intensities.dataBufferIndex)
-
-
-        # print(dir(lidar_message))
-        # print(dir(ranges))
-        # print(dir(intensities))
+        theta = lidar_message.proto.theta #水平扫描角度
+        phi = lidar_message.proto.phi #垂直扫描角度
+        print(f"theta(horizontal):{len(theta)}, phi(vertical):{len(phi)}")
         print('-'*80)
+
+class FlatScan(Codelet):
+    def start(self):
+        self.flat_rx = self.isaac_proto_rx('FlatscanProto', 'flat_scan')
+        self.tick_on_message(self.flat_rx)
+
+    def tick(self):
+        flat_msg = self.flat_rx.message
+        ranges = flat_msg.proto.ranges
+        angles = flat_msg.proto.angles
+
+        ranges = np.array(ranges)
+        angles = np.array(angles)
+        r = 10
+        x_ = ranges * np.sin(angles)
+        y_ = ranges * np.cos(angles)
+        x_ += 11 + 5
+        x_ *= r
+        y_ += 1.5 + 5
+        y_*= r
+        img = np.zeros((60*r, 30*r, 3), np.uint8)
+        point_size = 1
+        point_color = (0, 0, 255) # BGR
+        thickness = 0 # 可以为 0 、4、8
+        for i in range(len(x_)):
+            cv.circle(img, (int(x_[i]), int(y_[i])), point_size, point_color, thickness)
+        cv.imshow('flat', img)
+        cv.waitKey(1)
+
 
 
 def main():
     app = Application(name = 'sim_cv')
     app.load_module('viewers')
     app.load('packages/navsim/apps/navsim_tcp.subgraph.json', 'simulation')
+    app.load('apps/mybot/subgraph/range_scan.subgraph.json', 'range')
     node_view = app.add('viewer')
     component_color_view = node_view.add(app.registry.isaac.viewers.ColorCameraViewer, 'ColorCameraViewer')
     component_depth_view = node_view.add(app.registry.isaac.viewers.DepthCameraViewer, 'DepthCameraViewer')
@@ -97,6 +125,9 @@ def main():
     node_lidar = app.add('lidar')
     component_lidar = node_lidar.add(SimLidar, 'SimLidar')
 
+    node_flat = app.add('flat')
+    component_flat = node_flat.add(FlatScan, 'flatscan')
+
     app.connect('simulation.interface/output', 'color', 'viewer/ColorCameraViewer', 'color_listener')
     app.connect('simulation.interface/output', 'depth', 'viewer/DepthCameraViewer', 'depth_listener')
     app.connect('simulation.interface/output', 'segmentation', 'viewer/SegmentationCameraViewer', 'segmentation_listener')
@@ -104,6 +135,8 @@ def main():
     # app.connect('simulation.interface/output', 'depth', 'test/SimCvColor', 'depth_image')
 
     app.connect('simulation.interface/output', 'rangescan', 'lidar/SimLidar', 'range_scan')
+    app.connect('range.flatscan_noiser/FlatscanNoiser','noisy_flatscan', 'flat/flatscan', 'flat_scan')
+    app.connect('simulation.interface/output', 'rangescan', 'range.scan_flattener/RangeScanFlattening', 'scan')
     app.run()
 
 if __name__=='__main__':
